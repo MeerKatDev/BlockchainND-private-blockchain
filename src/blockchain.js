@@ -80,6 +80,8 @@ class Blockchain {
           self.chain.push(block);
           self.height += 1;
 
+          self.validateChain();
+
           resolve(block);
         });
     }
@@ -168,7 +170,7 @@ class Blockchain {
     getStarsByWalletAddress (address) {
         let self = this;
         return new Promise((resolve, reject) => {
-          const stars = self.chain.reduce(function (acc, b) {
+          let stars = self.chain.reduce(function (acc, b) {
             let bdata = b.getBData();
             if(bdata === null) return acc;
 
@@ -187,10 +189,20 @@ class Blockchain {
      */
     validateChain() {
         let self = this;
-        let errorLog = [];
+        // let errorLog = [];
         return new Promise(async (resolve, reject) => {
-            resolve(self.chain.map( b => b.validate() ));
-        });
+          try {
+            let errorLog = self.chain.map( b => b.validate() );
+
+            if(errorLog === [])
+              resolve('the Chain is valid');
+            else
+              throw('the Chain is not valid');
+          } catch(e) {
+            reject(e);
+          }
+
+        }).catch( e => e.toString());
     }
 
 }
