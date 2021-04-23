@@ -16,12 +16,12 @@ class Block {
 
     // Constructor - argument data will be the object containing the transaction data
 	constructor(data){
-		this.hash = null;                                           // Hash of the block
-		this.height = 0;                                            // Block Height (consecutive number of each block)
-		this.body = Buffer.from(JSON.stringify(data)).toString('hex');   // Will contain the transactions stored in the block, by default it will encode the data
-		this.time = 0;                                              // Timestamp for the Block creation
-		this.previousBlockHash = null;                              // Reference to the previous Block Hash
-    }
+  		this.hash = null;                                               // Hash of the block
+  		this.height = 0;                                                // Block Height (consecutive number of each block)
+  		this.body = Buffer.from(JSON.stringify(data)).toString('hex');  // Will contain the transactions stored in the block, by default it will encode the data
+  		this.time = Math.floor(Date.now() / 1000);                      // Timestamp for the Block creation
+  		this.previousBlockHash = null;                                  // Reference to the previous Block Hash
+  }
 
     /**
      *  validate() method will validate if the block has been tampered or not.
@@ -41,17 +41,20 @@ class Block {
             // Save in auxiliary variable the current block hash
             const blockHash = self.hash;
             // Recalculate the hash of the Block
-            const toHash = JSON.stringify({
-              self.height, self.body, self.time, self.previousBlockHash
-            });
-            const recalcHash = SHA256(toHash).toString();
+            const recalcHash = self.calculateBlockHash(self);
             // Comparing if the hashes changed
             // Returning the Block is not valid
             // Returning the Block is valid
-            blockHash === recalcHash ? resolve("the Block is valid") : reject(Error("the Block is not valid"));
+            blockHash === recalcHash ? resolve("the Block is valid") : reject("the Block is not valid");
         });
     }
 
+    calculateBlockHash(block) {
+        const toHash = JSON.stringify(
+          [ block.height, block.body, block.time, block.previousBlockHash ]
+        );
+        return SHA256(toHash).toString();
+    }
 
     /**
      *  Auxiliary Method to return the block body (decoding the data)
@@ -68,11 +71,10 @@ class Block {
             // Decoding the data to retrieve the JSON representation of the object
             const text = hex2ascii(this.body);
             // Parse the data to an object to be retrieve.
-            const json = JSON.parse(text);
+            return JSON.parse(text);
+        } else {
             // Resolve with the data if the object isn't the Genesis block
-            resolve(json);
-        } else
-            resolve(null);
+            return null;
         }
     }
 

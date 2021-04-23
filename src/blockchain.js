@@ -65,11 +65,21 @@ class Blockchain {
         let self = this;
         return new Promise(async (resolve, reject) => {
           block.time = Math.floor(Date.now() / 1000);
-          block.height = self.height === -1 ? 0 : self.height + 1;
 
-          // block.calculateHash()
+          if(self.height === -1) {
+              block.height = 0;
+              block.previousBlockHash = null;
+          } else {
+              block.height = self.height + 1;
+              block.previousBlockHash = self.chain[self.chain.length - 1].hash;
+          }
+
+          // need to recalculate the hash, because the properties were changed.
+          block.hash = block.calculateBlockHash(block);
+
           self.chain.push(block);
           self.height += 1;
+
           resolve(block);
         });
     }
@@ -84,7 +94,7 @@ class Blockchain {
      */
     requestMessageOwnershipVerification(address) {
         return new Promise((resolve) => {
-
+          resolve(address + ":" + Date.now().toString().slice(0, -3) + ":starRegistry")
         });
     }
 
@@ -108,7 +118,17 @@ class Blockchain {
     submitStar(address, message, signature, star) {
         let self = this;
         return new Promise(async (resolve, reject) => {
-
+            const [ walletAddress, timestamp, _ ] = message.split(":");
+            const currentTime = parseInt(Date.now().toString().slice(0, -3));
+            if((currentTime - timestamp) > (5 * 60)) // more than 5 minutes passed
+              reject('Timestamp expired!');
+            else {
+              if(bitcoinMessage.verify(message, address, signature)) {
+                const block = self._addBlock(new BlockClass.Block({ star, address }));
+                resolve(block);
+              } else
+                reject('Could not successfully verify the message');
+            }
         });
     }
 
@@ -121,7 +141,8 @@ class Blockchain {
     getBlockByHash(hash) {
         let self = this;
         return new Promise((resolve, reject) => {
-
+            const res = self.chain.find( b => b.hash === hash );
+            resolve(res === undefined ? null : res);
         });
     }
 
@@ -133,12 +154,8 @@ class Blockchain {
     getBlockByHeight(height) {
         let self = this;
         return new Promise((resolve, reject) => {
-            let block = self.chain.filter(p => p.height === height)[0];
-            if(block){
-                resolve(block);
-            } else {
-                resolve(null);
-            }
+            const res = self.chain.find( b => b.height === height );
+            resolve(res === undefined ? null : res);
         });
     }
 
@@ -150,23 +167,29 @@ class Blockchain {
      */
     getStarsByWalletAddress (address) {
         let self = this;
-        let stars = [];
         return new Promise((resolve, reject) => {
+          const stars = self.chain.reduce(function (acc, b) {
+            let bdata = b.getBData();
+            if(bdata === null) return acc;
 
+            return bdata.address === address ?
+              acc.concat([{ star: bdata.star, owner: bdata.address }]) : acc;
+          }, []);
+          resolve(stars);
         });
     }
 
     /**
      * This method will return a Promise that will resolve with the list of errors when validating the chain.
      * Steps to validate:
-     * 1. You should validate each block using `validateBlock`
+     * 1. You should validate each block using `validate`
      * 2. Each Block should check the with the previousBlockHash
      */
     validateChain() {
         let self = this;
         let errorLog = [];
         return new Promise(async (resolve, reject) => {
-
+            resolve(self.chain.map( b => b.validate() ));
         });
     }
 
